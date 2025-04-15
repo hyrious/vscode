@@ -395,6 +395,28 @@ after(async function () {
 	}
 });
 
+afterEach(async function () {
+	if (process.platform === 'darwin') {
+		await measureAndLog(() => Promise.race([
+			new Promise<void>((resolve, reject) => {
+				const proc = cp.spawn('security', ['find-generic-password', '-l', 'Code - Exploration Safe Storage']);
+
+				proc.stdout.on('data', data => logger.log(`security stdout: ${data}`));
+				proc.stderr.on('data', data => logger.log(`security stderr: ${data}`));
+
+				proc.on('error', reject);
+				proc.on('close', code => {
+					logger.log(`security exited with code ${code}`);
+					resolve();
+				});
+			}),
+			timeout(30000).then(() => {
+				throw new Error('giving up printing generic password after 30s');
+			})
+		]), 'printgenericpassword', logger);
+	}
+});
+
 describe(`VSCode Smoke Tests (${opts.web ? 'Web' : 'Electron'})`, () => {
 	if (!opts.web) { setupDataLossTests(() => opts['stable-build'] /* Do not change, deferred for a reason! */, logger); }
 	setupPreferencesTests(logger);
